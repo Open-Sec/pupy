@@ -419,7 +419,9 @@ class PupyPackageFinder(object):
 
         finally:
             # Don't delete network.conf module
-            if selected and not selected.startswith('network/conf'):
+            if selected and \
+              not selected.startswith('network/conf') and \
+              selected in modules:
                 dprint('XXX {} remove {} from bundle / count = {}'.format(fullname, selected, len(modules)))
                 del modules[selected]
 
@@ -563,7 +565,7 @@ def install(debug=None, trace=False):
     ctypes._dlopen = pupy_dlopen
     ctypes.util.find_library = pupy_find_library
 
-    if 'win' in sys.platform:
+    if sys.platform == 'win32':
         import pywintypes
     if __debug:
         print 'Bundled modules:'

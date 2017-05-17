@@ -9,6 +9,7 @@ import argparse
 
 remove_stdout='''
 import sys
+sys.tracebacklimit = 0
 class Blackhole(object):
     softspace = 0
     def read(self):
@@ -59,11 +60,14 @@ if __name__=="__main__":
         compile(pupyimporter, '<string>', 'exec')
     )
 
+    if not args.debug:
+        print 'Generate bootloader with blackholed stderr/stdout'
+
     bootloader = [
         remove_stdout if not args.debug else 'print "DEBUG"\n',
         'import sys; sys.path=[]; sys.path_hooks=[]; sys.meta_path=[];' + (
             'sys.argv = [];' if not args.pass_argv else ''
-        ) + 'sys.prefix = ""; sys.flags.optimize=1;\n',
+        ) + 'sys.prefix = "";\n',
         pupyload.format('pupyimporter', repr(pupyimporter)),
         'import pupyimporter\n'
         'pupyimporter.install({})\n'.format(args.debug),

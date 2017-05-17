@@ -64,7 +64,7 @@ class WebcamSnapModule(PupyModule):
             buff, width, height = dev.getbuffer()
             pil_save(filepath, buff, width, height)
         elif self.client.is_android():
-            if args.nb_cameras == True:
+            if args.nb_cameras:
                 self.success("Number of cameras: {0}".format(self.client.conn.modules['pupydroid.camera'].numberOfCameras()))
                 return
             else:
